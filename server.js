@@ -6,6 +6,32 @@ const { body, validationResult } = require("express-validator");
 const app = express();
 app.use(express.json());
 
+const trainers = [
+    {
+        id: 1,
+        name: "John Doe",
+        specialty: "Yoga",
+        rate: "$50/hr",
+        rateValue: 50.0,
+        bio: "Experienced yoga instructor specializing in Vinyasa.",
+        certifications: ["RYT 200"]
+    },
+    {
+        id: 2,
+        name: "Jane Smith",
+        specialty: "Strength Training",
+        rate: "$60/hr",
+        rateValue: 60.0,
+        bio: "Certified strength coach helping clients build muscle and confidence.",
+        certifications: ["CPT", "CSCS"]
+    }
+];
+
+// 🛠️ GET /trainers Route
+app.get("/trainers", (req, res) => {
+    res.json(trainers);
+});
+
 // Use an in-memory array for demo purposes (replace with a database for production)
 const users = [
     {
