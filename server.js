@@ -1,93 +1,52 @@
 const express = require("express");
-const cors = require("cors");
-const bodyParser = require("body-parser");
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
+const { body, validationResult } = require("express-validator");
 
 const app = express();
-app.use(cors());
-app.use(bodyParser.json());
+app.use(express.json());
 
-const trainers = [
-    {
-        id: 1,
-        name: "John Doe",
-        specialty: "Yoga",
-        rate: "$50/hr",
-        rateValue: 50,
-        bio: "Experienced yoga instructor specializing in Vinyasa.",
-        certifications: ["RYT 200"]
-    },
-    {
-        id: 2,
-        name: "Jane Smith",
-        specialty: "Strength Training",
-        rate: "$60/hr",
-        rateValue: 60,
-        bio: "Certified strength coach helping clients build muscle and confidence.",
-        certifications: ["CPT", "CSCS"]
+const users = [];
+
+const SECRET_KEY = process.env.SECRET_KEY || "your_jwt_secret_key";
+
+app.post(
+    "/register",
+    body("email").isEmail(),
+    body("password").isLength({ min: 6 }),
+    async (req, res) => {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+
+        const { email, password, role } = req.body;
+        const hashedPassword = await bcrypt.hash(password, 10);
+        users.push({ email, password: hashedPassword, role });
+        res.status(201).json({ message: "User registered successfully" });
     }
-];
+);
 
-const fs = require("fs");
+app.post("/login", async (req, res) => {
+    const { email, password } = req.body;
 
-// Load bookings from a file at startup
-let bookings = [];
-try {
-    const data = fs.readFileSync("bookings.json");
-    bookings = JSON.parse(data);
-    console.log("Bookings Loaded:", bookings);
-} catch (error) {
-    console.log("No existing bookings file found. Starting fresh.");
-}
-
-// Save bookings to a file whenever a new booking is added
-app.post("/bookings", (req, res) => {
-    const { trainerId, clientName, date, time } = req.body;
-
-    if (!trainerId || !clientName || !date || !time) {
-        return res.status(400).json({ error: "All fields are required" });
+    const user = users.find(u => u.email === email);
+    if (!user) {
+        return res.status(400).json({ error: "Invalid email or password." });
     }
 
-    const booking = {
-        id: bookings.length + 1,
-        trainerId,
-        clientName,
-        date,
-        time
-    };
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+        return res.status(400).json({ error: "Invalid email or password." });
+    }
 
-    bookings.push(booking);
-    fs.writeFileSync("bookings.json", JSON.stringify(bookings, null, 2)); // Save to file
-    console.log("Booking Added:", booking);
-    res.status(201).json({ message: "Booking created", booking });
+    const token = jwt.sign({ email: user.email, role: user.role }, SECRET_KEY, { expiresIn: "1h" });
+    res.json({ token });
 });
 
-
-
-// Get all bookings (with enriched trainer details)
-app.get("/bookings", (req, res) => {
-    console.log("GET /bookings route triggered"); // Add this log
-    const enrichedBookings = bookings.map(booking => {
-        const trainer = trainers.find(t => t.id === booking.trainerId);
-        console.log("Current Booking:", booking); // Log each booking being processed
-        console.log("Matched Trainer:", trainer); // Log the trainer found for the booking
-        return {
-            ...booking,
-            trainerName: trainer ? trainer.name : "Unknown Trainer",
-            specialty: trainer ? trainer.specialty : "Unknown Specialty"
-        };
-    });
-
-    console.log("Enriched Bookings:", enrichedBookings); // Log the final enriched array
-    res.json(enrichedBookings);
+app.get("/", (req, res) => {
+    res.send("Server is running!");
 });
 
-
-
-// Get all trainers
-app.get("/trainers", (req, res) => {
-    res.json(trainers);
-});
-
-// Start the server
 const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
