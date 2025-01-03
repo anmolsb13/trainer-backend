@@ -111,6 +111,39 @@ app.get("/protected", (req, res) => {
     }
 });
 
+const bookings = [];
+
+// 🛠️ POST /bookings Route
+app.post("/bookings", (req, res) => {
+    const { trainerId, clientName, date, time } = req.body;
+
+    // Validate required fields
+    if (!trainerId || !clientName || !date || !time) {
+        return res.status(400).json({ error: "All fields are required" });
+    }
+
+    // Create a new booking
+    const booking = {
+        id: bookings.length + 1,
+        trainerId,
+        clientName,
+        date,
+        time
+    };
+
+    // Add booking to the array
+    bookings.push(booking);
+
+    // Respond with success
+    res.status(201).json({ message: "Booking created", booking });
+});
+
+// 🛠️ GET /bookings Route to Check Bookings
+app.get("/bookings", (req, res) => {
+    res.json(bookings);
+});
+
+
 
 // 🛠️ Debug Route to Check Server Status
 app.get("/", (req, res) => {
