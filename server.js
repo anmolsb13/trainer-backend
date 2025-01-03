@@ -1,19 +1,26 @@
 const express = require("express");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const { body, validationResult } = require("express-validator"); // Import express-validator
+const { body, validationResult } = require("express-validator");
 
 const app = express();
 app.use(express.json());
 
-const users = []; // Empty array to store users
+// Use an in-memory array for demo purposes (replace with a database for production)
+const users = [
+    {
+        email: "test@example.com",
+        password: bcrypt.hashSync("password123", 10), // Pre-hashed password
+        role: "client"
+    }
+];
 
-const SECRET_KEY = "your_jwt_secret_key"; // Replace with a secure key
+// Use environment variables for security (Render will provide the PORT dynamically)
+const SECRET_KEY = process.env.SECRET_KEY || "chewy";
 
-// Register Endpoint
+// 🛠️ Register Endpoint
 app.post(
     "/register",
-    // Input Validation
     body("email").isEmail(),
     body("password").isLength({ min: 6 }),
     async (req, res) => {
@@ -22,18 +29,26 @@ app.post(
             return res.status(400).json({ errors: errors.array() });
         }
 
-        const { email, password, role } = req.body; // Role: "client" or "trainer"
+        const { email, password, role } = req.body;
+
+        // Check if the user already exists
+        const existingUser = users.find(u => u.email === email);
+        if (existingUser) {
+            return res.status(400).json({ error: "User already exists." });
+        }
+
+        // Hash the password
         const hashedPassword = await bcrypt.hash(password, 10);
         users.push({ email, password: hashedPassword, role });
         res.status(201).json({ message: "User registered successfully" });
     }
 );
 
-// Login Endpoint
+// 🛠️ Login Endpoint
 app.post("/login", async (req, res) => {
     const { email, password } = req.body;
 
-    // Validate user
+    // Find the user
     const user = users.find(u => u.email === email);
     if (!user) {
         return res.status(400).json({ error: "Invalid email or password." });
@@ -50,7 +65,7 @@ app.post("/login", async (req, res) => {
     res.json({ token });
 });
 
-// Protected Route Example
+// 🛠️ Protected Route Example
 app.get("/protected", (req, res) => {
     const authHeader = req.headers.authorization;
     if (!authHeader) {
@@ -58,18 +73,24 @@ app.get("/protected", (req, res) => {
     }
 
     const token = authHeader.split(" ")[1];
+    console.log("Received Token:", token);
+
     try {
         const decoded = jwt.verify(token, SECRET_KEY);
+        console.log("Decoded Token:", decoded);
         res.json({ message: "Access granted", data: decoded });
-    } catch {
-        res.status(401).json({ error: "Invalid token" });
+    } catch (err) {
+        console.error("Token verification failed:", err);
+        res.status(401).json({ error: "Invalid token", details: err.message });
     }
 });
 
-// Debug Route to Check Server Status
+
+// 🛠️ Debug Route to Check Server Status
 app.get("/", (req, res) => {
     res.send("Server is running!");
 });
 
-const PORT = 5001;
+// 🛠️ Dynamic PORT for Render
+const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
